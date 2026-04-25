@@ -1,0 +1,52 @@
+services:
+  api:
+    build: .
+    container_name: url-content-analyzer-api
+    ports:
+      - "8000:8000"
+    volumes:
+      - .:/app
+    environment:
+      APP_ENV: local
+      DATABASE_URL: mysql+aiomysql://root:root@mysql:3306/url_content_analyzer
+      REDIS_URL: "redis://redis:6379"
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    depends_on:
+      - mysql
+      - redis
+    stop_grace_period: 60s
+
+  worker:
+    build: .
+    volumes:
+      - .:/app
+    environment:
+      APP_ENV: local
+      DATABASE_URL: mysql+aiomysql://root:root@mysql:3306/url_content_analyzer
+      REDIS_URL: "redis://redis:6379"
+    command: python -m app.workers.worker
+    depends_on:
+      - mysql
+      - redis
+
+  mysql:
+    image: mysql:8.4.8
+    container_name: url-content-analyzer-mysql
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: url_content_analyzer
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+
+  redis:
+    image: redis:8.6.2
+    container_name: url-content-analyzer-redis
+    restart: always
+    ports:
+      - "6379:6379"
+
+volumes:
+  mysql_data:

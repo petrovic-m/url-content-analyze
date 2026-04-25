@@ -6,6 +6,7 @@ class Job(Base):
     __tablename__ = "jobs"
 
     id = Column(Integer, primary_key=True, index=True)
+    correlation_id = Column(String(500), nullable=True)
     url = Column(Text, nullable=False)
     status = Column(String(50), default="pending")
     attempts = Column(Integer, default=0)

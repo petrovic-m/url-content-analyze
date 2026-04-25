@@ -1,7 +1,11 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
+from app.db.database import AsyncSessionLocal
+from app.services.job_service import JobService
 
 router = APIRouter()
+service = JobService()
 
-@router.get("/stats")
+@router.get("/")
 async def get_stats():
-    return {"status": "ok"}
+    async with AsyncSessionLocal() as session:
+        return await service.get_stats(session)
