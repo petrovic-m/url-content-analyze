@@ -1,7 +1,3 @@
-from ast import List
-from statistics import correlation
-
-from app.models import job
 from app.models.job import Job
 from typing import List
 from sqlalchemy import select, func
@@ -25,6 +21,8 @@ class JobRepository:
 
     async def change_process(self, session, job: Job) -> Job:
         job.status = "processing"
+        if job.started_at is None:
+            job.started_at = datetime.now(UTC)
         await session.commit()
         await session.refresh(job)
         return job
@@ -32,10 +30,11 @@ class JobRepository:
     async def mark_done(self, session, job: Job, result: dict) -> Job:
         job.status = "done"
         job.http_status_code = result["http_status_code"]
-        job.rest_status_code = result["response_time_ms"]
+        job.response_time_ms = result["response_time_ms"]
         job.title = result["title"]
         job.word_count = result["word_count"]
         job.top_words = result["top_words"]
+        job.finished_at = datetime.now(UTC)
         await session.commit()
         await session.refresh(job)
         return job
@@ -43,6 +42,7 @@ class JobRepository:
     async def mark_failed(self, session, job: Job, err_msg: str) -> Job:
         job.status = "failed"
         job.error_message = err_msg
+        job.finished_at = datetime.now(UTC)
         await session.commit()
         await session.refresh(job)
         return job

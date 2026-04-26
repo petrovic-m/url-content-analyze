@@ -1,11 +1,18 @@
 import time
 import httpx
 import asyncio
+import re
 from collections import Counter
 from bs4 import BeautifulSoup
 from urllib.parse import urlparse
 
 DOMAIN_LIMITERS: dict[str, asyncio.Semaphore] = {}
+STOP_WORDS = {
+    "a", "an", "the", "and", "or", "to", "for", "of", "in", "on", "at",
+    "by", "with", "from", "as", "is", "are", "was", "were", "be", "been",
+    "we", "you", "your", "our", "it", "this", "that", "they", "their",
+}
+
 
 class AnalyzerService:
     async def analyze(self, url: str) -> dict:
@@ -14,8 +21,8 @@ class AnalyzerService:
 
         async with limiter:
             async with httpx.AsyncClient(
-                    timeout=httpx.Timeout(connect=5),
-                    follow_redirects=True,
+                    timeout=httpx.Timeout(5.0),
+                    follow_redirects=True
             ) as client:
                 response = await client.get(url)
 
@@ -23,12 +30,17 @@ class AnalyzerService:
         html = response.text
         soup = BeautifulSoup(html, "html.parser")
         title = soup.title.string if soup.title else None
-        text = soup.get_text().lower()
-        words = text.split()
-        words_count = len(words)
-        counter = Counter(words)
-        top_words = [word for word, _ in counter.most_common(10)]
-
+        text = soup.get_text(" ", strip=True).lower()
+        words = re.findall(r"[a-zA-Z]{3,}", text)
+        filtered_words = [
+            word for word in words
+            if word not in STOP_WORDS
+        ]
+        words_count = len(filtered_words)
+        counter = Counter(filtered_words)
+        top_words = [
+            word for word, _ in counter.most_common(10)
+        ]
         return {
             "http_status_code": response.status_code,
             "response_time_ms": duration,
@@ -37,7 +49,7 @@ class AnalyzerService:
             "top_words": top_words,
         }
 
-    async def __get_domain_limiter(self, url: str) -> asyncio.Semaphore:
+    def __get_domain_limiter(self, url: str) -> asyncio.Semaphore:
         domain = urlparse(url).netloc
         if domain not in DOMAIN_LIMITERS:
             DOMAIN_LIMITERS[domain] = asyncio.Semaphore(2)
